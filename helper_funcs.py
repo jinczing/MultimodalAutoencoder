@@ -1,6 +1,5 @@
 def get_secs_mins_hours_from_secs(total_secs):
     """Compute the hours, minutes, and seconds in a number of seconds.
-
     Args: 
         total_secs: An integer number of seconds.
     Returns: The hours, minutes, and seconds as ints
@@ -28,4 +27,4 @@ def get_friendly_label_name(col):
     elif 'health' in col.lower():
         name = 'health'
 
-    return name	
+    return name    
