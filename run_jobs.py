@@ -59,11 +59,11 @@ def send_email(subject, text, to_addr_list=DEFAULT_EMAIL_LIST):
         text: String text within the email body
         to_addr_list: List of email addresses to send to
     """
-    body = string.join(('From: %s' % SENDING_ADDRESS,
+    body = '\r\n'.join(('From: %s' % SENDING_ADDRESS,
                         'To: %s' % to_addr_list,
                         'Subject: %s' % subject,
                         '',
-                        text), '\r\n')
+                        text))
 
     try:
         server = smtplib.SMTP('smtp.gmail.com:587')  # NOTE: This is the GMAIL SSL port.

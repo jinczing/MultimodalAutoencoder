@@ -1,0 +1,7 @@
+MMAE MODEL SELECTION
+	This code will sweep a set of parameters to find the ideal settings for an MMAE on a single dataset
+
+Loading dataset /Your/path/here/Data/Cleaned/mmae.csv
+
+Okay, will continue from a previously saved validation results file for this problem
+
