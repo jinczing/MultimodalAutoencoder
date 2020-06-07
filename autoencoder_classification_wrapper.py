@@ -7,10 +7,10 @@ import imp
 CODE_PATH = os.path.dirname(os.getcwd())
 sys.path.append(CODE_PATH)
 
-DEFAULT_MAIN_DIRECTORY = '/Your/path/here/'
+DEFAULT_MAIN_DIRECTORY = './'
 
-DEFAULT_NUM_CROSS_FOLDS = 5
-LABELS_TO_PREDICT = ['happiness', 'health', 'calmness']
+DEFAULT_NUM_CROSS_FOLDS = 28
+LABELS_TO_PREDICT = ['arousal', 'valence']
 
 
 import data_funcs
@@ -35,13 +35,27 @@ class MMAEClassificationWrapper(ClassificationWrapper):
     it trains the MMAE to classify supervised labels using a different part of the network
     connected to the encoding layers. 
     """
-    def __init__(self, mmae_filename, classification_filename,
+    """
+    self, mmae_filename, classification_filename,
                  mmae_layer_sizes=[[1000,100],[200,100],[500,100]],
                  classification_layer_sizes=[[50,20],[25,10],[100,50],[100]], 
                  tie_weights=[True,False], mmae_dropout_probs=[1.0,0.5], mmae_weight_penalties=[.01,.001],
                  weight_initializers=['normal'], mmae_activation_funcs=['relu'], 
                  mmae_test_variational=[True,False], 
                  weight_penalties=[0.0,.001], dropout_probs=[0.5,1.0], activation_funcs=['relu'],
+                 classification_learning_rate=.0001, classification_batch_size=100, classification_num_steps=15000,
+                 cont=False, classifier_name='MMAE_NN_classifier', num_cross_folds=DEFAULT_NUM_CROSS_FOLDS, 
+                 dropbox_path=DEFAULT_MAIN_DIRECTORY, datasets_path='Data/Cleaned/', results_path=None, 
+                 check_test=False, normalization='between_0_and_1', optimize_for='val_acc', min_or_max='max', 
+                 save_results_every_nth=1, check_noisy_data=True, wanted_label=None
+    """
+    def __init__(self, mmae_filename, classification_filename,
+                 mmae_layer_sizes=[[1000,100]],
+                 classification_layer_sizes=[[50,20]], 
+                 tie_weights=[True], mmae_dropout_probs=[1.0], mmae_weight_penalties=[.01],
+                 weight_initializers=['normal'], mmae_activation_funcs=['relu'], 
+                 mmae_test_variational=[True,False], 
+                 weight_penalties=[.001], dropout_probs=[0.5], activation_funcs=['relu'],
                  classification_learning_rate=.0001, classification_batch_size=100, classification_num_steps=15000,
                  cont=False, classifier_name='MMAE_NN_classifier', num_cross_folds=DEFAULT_NUM_CROSS_FOLDS, 
                  dropbox_path=DEFAULT_MAIN_DIRECTORY, datasets_path='Data/Cleaned/', results_path=None, 

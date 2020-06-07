@@ -8,7 +8,7 @@ from sklearn.metrics.pairwise import rbf_kernel
 CODE_PATH = os.path.dirname(os.getcwd())
 sys.path.append(CODE_PATH)
 
-DEFAULT_MAIN_DIRECTORY = '/Your/path/here/'
+DEFAULT_MAIN_DIRECTORY = './'
 
 DEFAULT_NUM_CROSS_FOLDS = 5
 Z_SCORE_FILL_WITH_0 = True

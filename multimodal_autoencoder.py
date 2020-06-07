@@ -13,7 +13,7 @@ import imp
 CODE_PATH = os.path.dirname(os.getcwd())
 sys.path.append(CODE_PATH)
 
-DEFAULT_MAIN_DIRECTORY = '/Your/path/here/'
+DEFAULT_MAIN_DIRECTORY = './'
 
 import data_funcs
 
@@ -200,11 +200,11 @@ class MultimodalAutoencoder:
 
         if self.intelligent_noise:
             print("Using intelligent noise")
-            self.noise_type_percentages = [ 0.64018104,  0.03168217,  0.25119437,  0.07694242]
+            self.noise_type_percentages = [ 0.741379,  0.13189671,  0.07241388,  0.0543104 ]
             self.noise_types = [[],
-                                ['call','sms','screen'],
-                                ['location'],
-                                ['location','call','sms','screen']]
+                                ['EEG'],
+                                ['ECG'],
+                                ['GSR']]
 
         if self.classification_layer_sizes is not None:
             if self.verbose: print("Okay, preparing model to perform classification")

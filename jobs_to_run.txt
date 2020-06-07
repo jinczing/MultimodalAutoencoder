@@ -1,3 +1,3 @@
 MMAE wrapper - intelligent noise - no classification
-python autoencoder_wrapper.py mmae.csv True
+python ascertain_wrapper.py mmae.csv False
 ./results/mmae_intelligent_noise_no_classification.txt

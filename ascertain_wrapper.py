@@ -42,7 +42,7 @@ class MMAEWrapper(Wrapper):
     Performs a grid search over every combination of settings.
     """
     def __init__(self, filename, classification_filename='mmae_0.csv', 
-                 layer_sizes=[[1000,100]], 
+                 layer_sizes=[[100,60]], 
                  tie_weights=[False], dropout_probs=[1.0], weight_penalties=[.001],
                  weight_initializers=['normal'], activation_funcs=['relu'], 
                  test_variational=True, cont=False, classifier_name='MMAE', 
@@ -102,6 +102,10 @@ class MMAEWrapper(Wrapper):
         self.optimizer = tf.train.AdamOptimizer
         self.num_steps = 15000
         self.learning_rate = .001
+
+        # handle custom metrics: acc and f1
+        self.accs_val = []
+        self.f1s_val = []
         
         if optimize_for is None:
             optimize_for = 'val_' + self.loss_func
@@ -126,7 +130,7 @@ class MMAEWrapper(Wrapper):
                                                  cross_validation=True,
                                                  normalization=self.normalization, 
                                                  fill_missing_with=self.fill_missing,
-                                                 train_samples=1204)
+                                                 is_cleaned_data=True)
         
         # Loads additional classification data
         self.classification_data_loader = data_funcs.DataLoader(self.datasets_path + self.classification_filename, 
@@ -135,8 +139,8 @@ class MMAEWrapper(Wrapper):
                                                                 cross_validation=True,
                                                                 normalization=self.normalization, 
                                                                 fill_missing_with=self.fill_missing,
-                                                                separate_noisy_data=True,
-                                                                train_samples=28)
+                                                                separate_noisy_data=True
+                                                                )
 
     def define_params(self):
         """Defines the list of hyperparameters that will be tested."""
@@ -241,40 +245,45 @@ class MMAEWrapper(Wrapper):
 
         label_accs = [np.nan] * len(LABELS_TO_PREDICT)
         label_aucs = [np.nan] * len(LABELS_TO_PREDICT)
+        label_f1s  = [np.nan] * len(LABELS_TO_PREDICT)
         noisy_accs = [np.nan] * len(LABELS_TO_PREDICT)
         noisy_aucs = [np.nan] * len(LABELS_TO_PREDICT)
         clean_accs = [np.nan] * len(LABELS_TO_PREDICT)
         clean_aucs = [np.nan] * len(LABELS_TO_PREDICT)
     
         for l in range(len(LABELS_TO_PREDICT)):
-            best_acc = 0.0
+            best_acc = -1.0
             best_auc = 0.0
+            best_f1 = 0.0
             best_noisy_acc = 0.0
             best_noisy_auc = 0.0
             best_clean_acc = 0.0
             best_clean_auc = 0.0
+
+            preds_trues_label = [[0,0], [0,0]]
 
             for C in [1.0, 10.0, 100.0]:
                 for b in [.01, .001]:
                     svm_model = SVC(C=C, kernel='rbf', gamma=b)
                     svm_model.fit(embed_train_X, self.classification_data_loader.train_Y[:,l])
 
-                    best_acc, best_auc = self.svm_pred_best_result(svm_model, embed_X_val,
+                    best_acc = self.svm_pred_best_result(svm_model, embed_X_val,
                                                                     self.classification_data_loader.val_Y, l, 
-                                                                    best_acc, best_auc)
-                    print('best_acc, best_auc: ', best_acc, best_auc)
+                                                                    best_acc, preds_trues_label[l])
+
+                    # print('best_acc: ', best_acc)
 
                     if embed_X_noisy.shape[0] > 0:
-                        best_noisy_acc, best_noisy_auc = self.svm_pred_best_result(svm_model, embed_X_noisy,
+                        best_noisy_acc = self.svm_pred_best_result(svm_model, embed_X_noisy,
                                                                         self.classification_data_loader.noisy_val_Y, l, 
-                                                                        best_noisy_acc, best_noisy_auc)
-                        print('best_noisy_acc, best_noisy_auc: ', best_noisy_acc, best_noisy_auc)
+                                                                        best_noisy_acc)
+                        #print('best_noisy_acc: ', best_noisy_acc)
 
                     if embed_X_clean.shape[0] > 0:
-                        best_clean_acc, best_clean_auc = self.svm_pred_best_result(svm_model, embed_X_clean,
+                        best_clean_acc = self.svm_pred_best_result(svm_model, embed_X_clean,
                                                                         self.classification_data_loader.clean_val_Y, l, 
-                                                                        best_clean_acc, best_clean_auc)
-                        print('best_clean_acc, best_clean_auc: ', best_clean_acc, best_clean_auc)
+                                                                        best_clean_acc)
+                        #print('best_clean_acc: ', best_clean_acc)
                     # except:
 
                     # try:
@@ -286,29 +295,33 @@ class MMAEWrapper(Wrapper):
                     
             label_accs[l] = best_acc
             label_aucs[l] = best_auc
+            label_f1s[l]   = best_f1
             noisy_accs[l] = best_noisy_acc
             noisy_aucs[l] = best_noisy_auc
             clean_accs[l] = best_clean_acc
             clean_aucs[l] = best_clean_auc
+            #print(preds_trues_label)
+            self.accs_val.append(label_accs)
+            self.f1s_val.append(preds_trues_label)
 
         return (np.atleast_2d(label_accs), np.atleast_2d(label_aucs), np.atleast_2d(noisy_accs), 
                 np.atleast_2d(noisy_aucs), np.atleast_2d(clean_accs), np.atleast_2d(clean_aucs))
     
-    def svm_pred_best_result(self, svm_model, X, Y, label, best_acc, best_auc):
+    def svm_pred_best_result(self, svm_model, X, Y, label, best_acc, preds_trues_label=[0,0]):
         """Given an SVM model and some data, tests whether the SVM's predictions
         are more accurate than the existing best accuracy. Returns the highest 
         of the two."""
         preds = svm_model.predict(X)
-        print(preds, Y[:,label])
 
         acc, auc, f1, precision, recall = gen_wrap.compute_all_classification_metrics(
             preds, Y[:,label])
-        print(acc)
-        print(f1)
+
         if acc > best_acc:
             best_acc = acc
+            preds_trues_label[0] = preds[0]
+            preds_trues_label[1] = Y[:,label][0]
         
-        return best_acc, best_auc
+        return best_acc
 
     def get_cross_validation_results(self, param_dict):
         """Goes through every cross-validation fold in the class's DataLoader, 
@@ -331,10 +344,13 @@ class MMAEWrapper(Wrapper):
         clean_accs = None
         clean_aucs = None
 
+        self.data_loader.set_to_cross_validation_fold(0)
+        losses.append(self.train_and_predict(param_dict))
+
         for f in range(self.num_cross_folds):
-            self.data_loader.set_to_cross_validation_fold(f)
+            #self.data_loader.set_to_cross_validation_fold(f)
             self.classification_data_loader.set_to_cross_validation_fold(f)
-            losses.append(self.train_and_predict(param_dict))
+            #losses.append(self.train_and_predict(param_dict))
         
             (fold_accs, fold_aucs, f_noisy_accs, 
              f_noisy_aucs, f_clean_accs, f_clean_aucs) = self.test_embedding_classification_quality()
@@ -357,6 +373,18 @@ class MMAEWrapper(Wrapper):
             param_dict['svm_noisy_val_auc_'+label] = np.nanmean(noisy_aucs[:,i])
             param_dict['svm_clean_val_acc_'+label] = np.nanmean(clean_accs[:,i])
             param_dict['svm_clean_val_auc_'+label] = np.nanmean(clean_aucs[:,i])
+
+            # caculate f1 score
+            results_val = np.asarray(self.f1s_val)
+            preds_val = results_val[:,i,0]
+            trues_val = results_val[:,i,1]
+            print(preds_val)
+            print(trues_val)
+            _acc, _auc, f1, _precision, _recall = gen_wrap.compute_all_classification_metrics(
+            preds_val, trues_val)
+            param_dict['svm_val_f1_'+label] = f1
+            print("Average F1 Score for label", label, "=", f1)
+
             
         param_dict['svm_val_acc'] = np.nanmean(accs)
         param_dict['svm_val_auc'] = np.nanmean(aucs)
@@ -366,6 +394,9 @@ class MMAEWrapper(Wrapper):
         param_dict['svm_clean_val_auc'] = np.nanmean(clean_aucs)
         print("Average accuracy on noisy data", np.nanmean(noisy_accs))
         print("Average accuracy on clean data", np.nanmean(clean_accs))
+
+        # caculate f1 score
+        
 
         return param_dict
 
@@ -411,6 +442,8 @@ class MMAEWrapper(Wrapper):
         for metric in ['svm_val_acc', 'svm_val_auc']:
             best_setting = self.find_best_setting(optimize_for=metric)
 
+
+
 if __name__ == "__main__":
     print("MMAE MODEL SELECTION")
     print("\tThis code will sweep a set of parameters to find the ideal settings for an MMAE on a single dataset")
@@ -425,14 +458,16 @@ if __name__ == "__main__":
     print("\nLoading dataset", DEFAULT_MAIN_DIRECTORY + datasets_path + filename)
     print("")
 
-    if len(sys.argv) >= 3 and sys.argv[2] == 'True':
+    classification_filename = sys.argv[2]
+
+    if len(sys.argv) >= 4 and sys.argv[3] == 'True':
         cont = True
         print("Okay, will continue from a previously saved validation results file for this problem")
     else:
         cont = False
     print("")
 
-    wrapper = MMAEWrapper(filename, dropbox_path=DEFAULT_MAIN_DIRECTORY, datasets_path=datasets_path,
+    wrapper = MMAEWrapper(filename, dropbox_path=DEFAULT_MAIN_DIRECTORY, classification_filename=classification_filename, datasets_path=datasets_path,
                           cont=cont)
 
     print("\nThe validation results dataframe will be saved in:", wrapper.results_path + wrapper.save_prefix + '.csv')

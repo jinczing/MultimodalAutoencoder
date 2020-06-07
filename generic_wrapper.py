@@ -15,7 +15,7 @@ import imp
 CODE_PATH = os.path.dirname(os.getcwd())
 sys.path.append(CODE_PATH)
 
-DEFAULT_MAIN_DIRECTORY = '/Your/path/here/'
+DEFAULT_MAIN_DIRECTORY = './'
 
 DEFAULT_NUM_CROSS_FOLDS = 5
 DEFAULT_CLEAN_FILE = 'all_modalities_present.csv'
@@ -253,6 +253,7 @@ class Wrapper:
         #sweep all possible combinations of parameters
         for param_dict in self.list_of_param_settings:
             self.test_one_setting(param_dict)
+            break # only one parameter
             
         self.val_results_df.to_csv(self.results_path + self.save_prefix + '.csv')
 
@@ -462,6 +463,8 @@ class ClassificationWrapper(Wrapper):
             if preds is None or true_y is None:
                 continue
 
+            print('preds', 'true_y', preds, true_y)
+
             acc, auc, f1, precision, recall = compute_all_classification_metrics(preds, true_y)
             all_acc.append(acc)
             all_auc.append(auc)
@@ -597,8 +600,10 @@ def compute_all_classification_metrics(preds, true_y):
         preds: The model's predicted labels.
     Returns: float accuracy, AUC, F1, precision, and recall
     """
+
     acc = compute_classification_metric(binary_accuracy, true_y, preds)
-    auc = compute_classification_metric(roc_auc_score, true_y, preds)
+    # auc = compute_classification_metric(roc_auc_score, true_y, preds)
+    auc = 0.0
     f1 = compute_classification_metric(f1_score, true_y, preds)
     precision = compute_classification_metric(precision_score, true_y, preds)
     recall = compute_classification_metric(recall_score, true_y, preds)

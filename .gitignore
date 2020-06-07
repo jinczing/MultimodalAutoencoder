@@ -102,3 +102,7 @@ ENV/
 
 # bak files
 *.bak
+*.csv
+
+# result
+/Results/

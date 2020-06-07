@@ -20,14 +20,17 @@ import numpy as np
 import operator
 import copy
 import matplotlib.pyplot as plt
+import random
 
-NUM_CROSS_VAL_FOLDS = 5
+NUM_CROSS_VAL_FOLDS = 28
+folds_list = [x for x in range(NUM_CROSS_VAL_FOLDS)]
+folds_list_fake_val = [x for x in range(1204)] * 1
 
 class DataLoader:
     def __init__(self, filename, supervised=True, suppress_output=False, cross_validation=False,
                  normalize_and_fill=True, normalization='between_0_and_1', fill_missing_with=0,
                  fill_gaps_with=None, extract_modalities=True, subdivide_physiology_features=False,
-                 wanted_label=None, labels_to_sign=False, separate_noisy_data=True):
+                 wanted_label=None, labels_to_sign=False, separate_noisy_data=True, train_samples=1204, is_cleaned_data=False):
         """Class that handles extracting numpy data matrices for train, validation,
         and test sets from a .csv file. Also normalizes and fills the data.
         filename: Name of .csv file from which data will be loaded.
@@ -73,6 +76,7 @@ class DataLoader:
         self.fill_missing_with = fill_missing_with
         self.fill_gaps_with = fill_gaps_with
         self.separate_noisy_data = separate_noisy_data
+        self.is_cleaned_data = is_cleaned_data
 
         # Extract dataframe from csv
         self.df = pd.DataFrame.from_csv(filename)
@@ -110,6 +114,8 @@ class DataLoader:
             print(len(self.val_X), "rows in validation data")
             print(len(self.test_X), "rows in testing data")
             print("Number of features:", self.num_feats)
+
+        
 
         # This code is used to find feature types within the feature names.
         if extract_modalities:
@@ -207,7 +213,10 @@ class DataLoader:
         Returns: the modified df
         """
         if 'logistics_cv_fold' not in df.columns.values:
-            df['logistics_cv_fold'] = df.apply(assign_cv_fold, axis=1)
+            if self.is_cleaned_data == True:
+                df['logistics_cv_fold'] = df.apply(assign_cv_fold_one, axis=1)
+            else:
+                df['logistics_cv_fold'] = df.apply(assign_cv_fold, axis=1)
             df.to_csv(self.filename)
         return df
 
@@ -359,6 +368,21 @@ class DataLoader:
                 missing_idxs.extend(np.arange(start_i,end_i))
         return missing_idxs
 
+    def assign_cv_fold(row, num_folds=NUM_CROSS_VAL_FOLDS):
+        """Randomly ssigns a cross-validation fold number to one row of a pandas dataframe.
+        Args:
+            row: A row of a pandas dataframe, containing the column 'dataset'
+            num_folds: The total number of cross-validation folds.
+        Returns: The cross-validation fold number.
+        """
+        print(row)
+        if row['dataset'] == 'Test':
+            return -1
+        else:
+            choose = random.sample(self.folds_list, 1)[0]
+            folds_list.remove(choose)
+            return choose
+
 """ Code for cleaning up data to use with classification algorithms / tensorflow """
 
 def normalize_fill_df(data_df, wanted_feats, normalization='z_score', suppress_output=False,
@@ -439,7 +463,8 @@ def get_wanted_feats_from_df(df):
                                                      'logistics' not in x and
                                                      'ppt_id' not in x and
                                                      'subject_id' not in x and
-                                                     'clip_id' not in x]
+                                                     'clip_id' not in x and
+                                                     'index' not in x]
     return wanted_feats
 
 def get_matrix_for_dataset(data_df, wanted_feats, dataset):
@@ -596,7 +621,26 @@ def assign_cv_fold(row, num_folds=NUM_CROSS_VAL_FOLDS):
     if row['dataset'] == 'Test':
         return -1
     else:
-        return np.random.randint(0,5)
+        if len(folds_list) != 0:
+            choose = random.sample(folds_list, 1)[0]
+            folds_list.remove(choose)
+            return choose
+        else:
+            return np.random.randint(0,num_folds)
+
+def assign_cv_fold_one(row):
+    """Always assigns a cross-validation fold number of a row of dataframe to be equal to samples size (leave-one-sample-out)
+    Args:
+        row: A row of a pandas dataframe, containing the column 'dataset'
+        num_folds: The total number of cross-validation folds.
+    Returns: The cross-validation fold number.
+    """
+    if row['dataset'] == 'Test':
+        return -1
+    else:
+        choose = random.sample(folds_list_fake_val, 1)[0]
+        folds_list_fake_val.remove(choose)
+        return choose
 
 """ Code for extracting data modalities """
 def get_modality_dict(wanted_feats, subdivide_phys=False):

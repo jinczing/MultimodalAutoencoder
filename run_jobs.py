@@ -26,6 +26,7 @@ import string
 from time import time
 import helper_funcs as helper
 import imp
+import numpy as np
 
 DEFAULT_EMAIL_LIST = ['you@yourschool.edu', 'yourcollaborator@yourschool.edu']
 SENDING_ADDRESS = 'yourcomputeemail@gmail.com'
@@ -35,6 +36,12 @@ PRINT_LAST_X_LINES = 300 # How many lines from the end of the output for the job
 ERROR = 1
 SUCCESS = 0
 WARNING = 2
+AUGMENTS = 58
+
+acc_arousal = []
+acc_valence = []
+f1_arousal = []
+f1_valence = []
 
 def reload_files():
     imp.reload(helper)
@@ -88,13 +95,13 @@ def load_job_file(filename):
     jobs = []
 
     i = 0
-    while i < len(lines):
-        jobname = lines[i]
-        command = lines[i+1]
-        output_file = lines[i+2]
+    while i < AUGMENTS:
+        jobname = 'mmae_'+str(i)
+        command = 'python ascertain_wrapper.py ' + 'mmae.csv ' + 'mmae_' + str(i) + '.csv ' + 'False'
+        output_file = './results/mmae_intelligent_noise_no_classification_' + str(i) + '.txt'
         job = Job(jobname, command, output_file)
         jobs.append(job)
-        i = i+4
+        i = i+1
 
     return jobs
 
@@ -125,6 +132,29 @@ def run_job(job_obj):
     # Execute the command
     stream = os.popen(job_obj.command)
     output = stream.read()
+
+
+    best_params = output.split('\n')
+    best_acc_arousal = 0.0
+    best_acc_valence = 0.0
+    best_f1_arousal = 0.0
+    best_f1_valence = 0.0
+
+    for p in best_params:
+        if 'svm_val_acc_arousal' in p:
+            best_acc_arousal = float(p.split()[1])
+        if 'svm_val_acc_valence' in p:
+            best_acc_valence = float(p.split()[1])
+        if 'svm_val_f1_arousal' in p:
+            best_f1_arousal = float(p.split()[1])
+        if 'svm_val_f1_valence' in p:
+            best_f1_valence = float(p.split()[1])
+
+    print(best_acc_arousal, best_acc_valence, best_f1_arousal, best_f1_valence)
+    acc_arousal.append(best_acc_arousal)
+    acc_valence.append(best_acc_valence)
+    f1_arousal.append(best_f1_arousal)
+    f1_valence.append(best_f1_valence)
 
     # Save output to desired file
     of = open(job_obj.output_file, 'w')
@@ -180,12 +210,22 @@ def email_about_job(job_obj, status, output):
 
 def run_jobs(jobfile):
     """Loads a job file, runs the jobs in it, and sends emails after each job."""
+
+    global acc_arousal
+    global acc_valence
+    global f1_arousal
+    global f1_valence
+
     jobs = load_job_file(filename)
 
     for job in jobs:
         status, output = run_job(job)
         email_about_job(job, status, output)
-
+    acc_arousal = np.asarray(acc_arousal)
+    acc_valence = np.asarray(acc_valence)
+    f1_arousal = np.asarray(f1_arousal)
+    f1_valence = np.asarray(f1_valence)
+    print(np.mean(acc_arousal), np.mean(acc_valence), np.mean(f1_arousal), np.mean(f1_valence))
     send_email("ALL JOBS FINISHED!!", "Congratulations, all of the jobs in the file " + jobfile + " have finished running.")
 
 if __name__ == "__main__":
